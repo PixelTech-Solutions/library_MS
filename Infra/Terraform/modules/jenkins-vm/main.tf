@@ -131,94 +131,94 @@ resource "azurerm_linux_virtual_machine" "jenkins" {
   }
 
   custom_data = base64encode(<<-EOF
-    #!/bin/bash
-    set -e
+#!/bin/bash
+set -e
 
-    # Update system
-    apt-get update -y
-    apt-get upgrade -y
+# Update system
+apt-get update -y
+apt-get upgrade -y
 
-    # Install Java 17 (required for Jenkins)
-    apt-get install -y openjdk-17-jdk
+# Install Java 17 (required for Jenkins)
+apt-get install -y openjdk-17-jdk
 
-    # Install Jenkins
-    curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
-    echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/" | tee /etc/apt/sources.list.d/jenkins.list > /dev/null
-    apt-get update -y
-    apt-get install -y jenkins
+# Install Jenkins
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/" | tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+apt-get update -y
+apt-get install -y jenkins
 
-    # Install Docker
-    apt-get install -y ca-certificates curl gnupg lsb-release
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-    apt-get update -y
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+# Install Docker
+apt-get install -y ca-certificates curl gnupg lsb-release
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-    # Install docker-compose (standalone)
-    curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
+# Install docker-compose (standalone)
+curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
 
-    # Add jenkins user to docker group
-    usermod -aG docker jenkins
+# Add jenkins user to docker group
+usermod -aG docker jenkins
 
-    # Install kubectl
-    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+# Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
-    # Install Azure CLI
-    curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+# Install Azure CLI
+curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
-    # Install Maven
-    apt-get install -y maven
+# Install Maven
+apt-get install -y maven
 
-    # Install Jenkins plugins (JCasC, pipeline, docker, git, credentials)
-    mkdir -p /var/lib/jenkins/plugins
-    PLUGIN_URL="https://updates.jenkins.io/latest"
-    for plugin in configuration-as-code workflow-aggregator docker-workflow git credentials-binding pipeline-stage-view; do
-      curl -fsSL "$PLUGIN_URL/$plugin.hpi" -o "/var/lib/jenkins/plugins/$plugin.hpi"
-    done
-    chown -R jenkins:jenkins /var/lib/jenkins/plugins
+# Install Jenkins plugins (JCasC, pipeline, docker, git, credentials)
+mkdir -p /var/lib/jenkins/plugins
+PLUGIN_URL="https://updates.jenkins.io/latest"
+for plugin in configuration-as-code workflow-aggregator docker-workflow git credentials-binding pipeline-stage-view; do
+  curl -fsSL "$PLUGIN_URL/$plugin.hpi" -o "/var/lib/jenkins/plugins/$plugin.hpi"
+done
+chown -R jenkins:jenkins /var/lib/jenkins/plugins
 
-    # Jenkins Configuration as Code — auto-creates the library pipeline job
-    mkdir -p /var/lib/jenkins/casc_configs
-    cat > /var/lib/jenkins/casc_configs/jobs.yaml << 'CASC'
-    jenkins:
-      systemMessage: "Jenkins configured via Terraform IaC"
-    jobs:
-      - script: |
-          pipelineJob('library-management-deploy') {
-            description('Build & Deploy Library Management App to AKS')
-            definition {
-              cpsScm {
-                scm {
-                  git {
-                    remote {
-                      url('https://github.com/PixelTech-Solutions/library_MS.git')
-                    }
-                    branches('*/master')
-                  }
+# Jenkins Configuration as Code — auto-creates the library pipeline job
+mkdir -p /var/lib/jenkins/casc_configs
+cat > /var/lib/jenkins/casc_configs/jobs.yaml << 'CASC'
+jenkins:
+  systemMessage: "Jenkins configured via Terraform IaC"
+jobs:
+  - script: |
+      pipelineJob('library-management-deploy') {
+        description('Build & Deploy Library Management App to AKS')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/PixelTech-Solutions/library_MS.git')
                 }
-                scriptPath('Jenkinsfile')
-                lightweight(true)
+                branches('*/main')
               }
             }
-            triggers {
-              githubPush()
-            }
+            scriptPath('Jenkinsfile')
+            lightweight(true)
           }
-    CASC
-    chown -R jenkins:jenkins /var/lib/jenkins/casc_configs
+        }
+        triggers {
+          githubPush()
+        }
+      }
+CASC
+chown -R jenkins:jenkins /var/lib/jenkins/casc_configs
 
-    # Tell Jenkins to use JCasC
-    echo 'JAVA_ARGS="-Dcasc.jenkins.config=/var/lib/jenkins/casc_configs"' >> /etc/default/jenkins
+# Tell Jenkins to use JCasC
+echo 'JAVA_ARGS="-Dcasc.jenkins.config=/var/lib/jenkins/casc_configs"' >> /etc/default/jenkins
 
-    # Start and enable services
-    systemctl enable jenkins
-    systemctl start jenkins
-    systemctl enable docker
-    systemctl start docker
-  EOF
+# Start and enable services
+systemctl enable jenkins
+systemctl start jenkins
+systemctl enable docker
+systemctl start docker
+EOF
   )
 
   tags = {
