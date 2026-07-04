@@ -6,10 +6,10 @@ name: "Infra - Terraform"
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths: ["Infra/Terraform/**"]
   pull_request:
-    branches: [master]
+    branches: [main]
     paths: ["Infra/Terraform/**"]
   workflow_dispatch:
 

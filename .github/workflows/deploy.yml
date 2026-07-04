@@ -9,7 +9,7 @@ name: "Deploy - Build & Push to ACR, Deploy AKS"
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - "Backend/**"
       - "Frontend/**"
