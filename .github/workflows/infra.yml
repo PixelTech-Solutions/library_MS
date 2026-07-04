@@ -1,0 +1,28 @@
+# =============================================================================
+# Infrastructure Pipeline — Calls reusable Terraform workflow
+# =============================================================================
+
+name: "Infra - Terraform"
+
+on:
+  push:
+    branches: [master]
+    paths: ["Infra/Terraform/**"]
+  pull_request:
+    branches: [master]
+    paths: ["Infra/Terraform/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dev:
+    uses: PixelTech-Solutions/Terraform/.github/workflows/terraform.yml@main
+    with:
+      working_directory: ./Infra/Terraform
+      environment: dev
+      project_name: library
+      service_name: infra
+    secrets: inherit

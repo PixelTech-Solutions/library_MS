@@ -1,0 +1,102 @@
+# =============================================================================
+# Deploy Pipeline — Build, Push to ACR, Deploy to AKS
+# =============================================================================
+# Triggers on changes to app code (Backend, Frontend, Compose, kubernetes).
+# Builds Docker images via docker-compose, pushes to ACR, deploys to AKS.
+# =============================================================================
+
+name: "Deploy - Build & Push to ACR, Deploy AKS"
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "Backend/**"
+      - "Frontend/**"
+      - "Compose/**"
+      - "kubernetes/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ACR_NAME: acrlibrarydev
+  ACR_LOGIN_SERVER: acrlibrarydev.azurecr.io
+  AKS_CLUSTER: aks-library-dev
+  RESOURCE_GROUP: rg-library-dev
+
+jobs:
+  build-and-deploy:
+    name: "Build, Push & Deploy"
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Azure Login ---
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.ARM_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.ARM_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.ARM_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.ARM_TENANT_ID }}"
+            }
+
+      # --- Login to ACR ---
+      - name: Login to ACR
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+
+      # --- Build Backend JAR ---
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Build Backend JAR
+        working-directory: Backend
+        run: mvn clean package -DskipTests
+
+      # --- Build & Push Docker Images ---
+      - name: Build Docker Images
+        working-directory: Compose
+        run: docker-compose build
+
+      - name: Push Docker Images to ACR
+        working-directory: Compose
+        run: docker-compose push
+
+      # --- Deploy to AKS ---
+      - name: Get AKS Credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER }} \
+            --overwrite-existing
+
+      - name: Create ACR Pull Secret
+        run: |
+          ACR_USER=$(az acr credential show -n ${{ env.ACR_NAME }} --query "username" -o tsv)
+          ACR_PWD=$(az acr credential show -n ${{ env.ACR_NAME }} --query "passwords[0].value" -o tsv)
+          kubectl create secret docker-registry acr-auth \
+            --docker-server=${{ env.ACR_LOGIN_SERVER }} \
+            --docker-username=$ACR_USER \
+            --docker-password=$ACR_PWD \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to AKS
+        run: |
+          kubectl apply -f kubernetes/deployment.yml
+          kubectl rollout restart deployment/my-app-deployment
+          kubectl rollout restart deployment/mysql-deployment
+          kubectl rollout status deployment/my-app-deployment --timeout=300s
+          kubectl rollout status deployment/mysql-deployment --timeout=300s
+
+      - name: Show Services
+        run: kubectl get services
