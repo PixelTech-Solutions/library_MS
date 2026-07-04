@@ -63,7 +63,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: librarycontainer.azurecr.io/backend:latest
+        image: acrlibrarydev.azurecr.io/backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 9090
@@ -79,7 +79,7 @@ spec:
         - name: DB_PASSWORD
           value: "yourpassword"
       - name: frontend
-        image: librarycontainer.azurecr.io/frontend:latest
+        image: acrlibrarydev.azurecr.io/frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80

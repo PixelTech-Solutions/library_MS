@@ -6,8 +6,10 @@ pipeline {
     environment {
         AZURE_CREDENTIALS = credentials('azure-credentials')
         AZ_TENANT_ID = '4f7d0492-1764-4824-8f60-f15e6d51cd70'
-        ACR_NAME = 'LibraryContainer'
-        ACR_LOGIN_SERVER = "librarycontainer.azurecr.io"
+        ACR_NAME = 'acrlibrarydev'
+        ACR_LOGIN_SERVER = 'acrlibrarydev.azurecr.io'
+        RESOURCE_GROUP = 'rg-library-dev'
+        AKS_CLUSTER = 'aks-library-dev'
     }
 
     stages {
@@ -135,7 +137,7 @@ pipeline {
                     if (isUnix()) {
                         sh '''
                             # Get AKS credentials
-                            az aks get-credentials --resource-group Devops --name library --overwrite-existing
+                            az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --overwrite-existing
 
                             # Verify the current context
                             kubectl config current-context
@@ -154,7 +156,7 @@ pipeline {
                     } else {
                         bat '''
                             REM Get AKS credentials
-                            az aks get-credentials --resource-group Devops --name library --overwrite-existing
+                            az aks get-credentials --resource-group %RESOURCE_GROUP% --name %AKS_CLUSTER% --overwrite-existing
 
                             REM Verify the current context
                             kubectl config current-context
@@ -181,13 +183,13 @@ pipeline {
                     if (isUnix()) {
                         sh '''
                             echo "Step 1: Getting AKS credentials..."
-                            az aks get-credentials --resource-group Devops --name library --overwrite-existing
+                            az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --overwrite-existing
                             
                             echo "Step 2: Current context:"
                             kubectl config current-context
                             
-                            echo "Step 3: Using context 'library':"
-                            kubectl config use-context library
+                            echo "Step 3: Using context 'aks-library-dev':"
+                            kubectl config use-context aks-library-dev
                             
                             echo "Step 4: Full kubeconfig view:"
                             kubectl config view
@@ -218,13 +220,13 @@ pipeline {
                     } else {
                         bat '''
                             echo Step 1: Getting AKS credentials...
-                            az aks get-credentials --resource-group Devops --name library --overwrite-existing
+                            az aks get-credentials --resource-group %RESOURCE_GROUP% --name %AKS_CLUSTER% --overwrite-existing
                             
                             echo Step 2: Current context:
                             kubectl config current-context
                             
-                            echo Step 3: Using context "library":
-                            kubectl config use-context library
+                            echo Step 3: Using context "aks-library-dev":
+                            kubectl config use-context aks-library-dev
                             
                             echo Step 4: Full kubeconfig view:
                             kubectl config view
